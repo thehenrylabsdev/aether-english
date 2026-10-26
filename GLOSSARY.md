@@ -18,6 +18,9 @@ Vector document
 Runtime
 : Either the on-device LiteRT engine or a cloud vendor the learner configured with their own key.
 
+Model download
+: A Settings action that resolves a catalogued Hugging Face file, reads its Git LFS oid, downloads the bytes over HTTPS, and keeps the file only when the bytes match that oid.
+
 Thermal band
 : The Android thermal status mapped to NONE, LIGHT, MODERATE, SEVERE, CRITICAL, or EMERGENCY. Policy caps hang off the band. The band is not a Celsius reading.
 

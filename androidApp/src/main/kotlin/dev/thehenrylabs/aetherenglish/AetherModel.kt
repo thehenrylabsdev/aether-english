@@ -27,6 +27,13 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+class DownloadRow(
+    val running: Boolean,
+    val bytes: Long,
+    val total: Long,
+    val error: String?,
+)
+
 class DeviceSettings {
     var backend: LocalBackend = LocalBackend.CPU
     var preferCloud: Boolean = false
@@ -56,6 +63,8 @@ class AetherModel(val runtime: AndroidRuntime, val copy: Copy) : ViewModel() {
     var recording by mutableStateOf(false)
     var settings by mutableStateOf(DeviceSettings())
     var keySaved by mutableStateOf(false)
+    var huggingfaceSaved by mutableStateOf(false)
+    var downloads by mutableStateOf<Map<String, DownloadRow>>(emptyMap())
     private var conversationId: String? = null
     private var idle: Job? = null
 
@@ -263,6 +272,44 @@ class AetherModel(val runtime: AndroidRuntime, val copy: Copy) : ViewModel() {
         }
     }
 
+    fun saveHuggingFaceToken(value: String) {
+        viewModelScope.launch {
+            val trimmed = value.trim()
+            if (trimmed.isBlank()) runtime.secrets.delete(HuggingFaceSecret.NAME) else runtime.secrets.put(HuggingFaceSecret.NAME, trimmed)
+            huggingfaceSaved = trimmed.isNotBlank()
+        }
+    }
+
+    fun downloadModel(spec: ModelSpec) {
+        if (!ModelCatalog.downloadAllowed(spec) || downloads[spec.id]?.running == true) return
+        viewModelScope.launch {
+            downloads = downloads + (spec.id to DownloadRow(true, 0, spec.bytes ?: 0L, null))
+            val outcome = HuggingFaceDownloader(
+                transport = runtime.downloads,
+                blobs = runtime.blobs,
+                token = { runtime.secrets.get(HuggingFaceSecret.NAME) },
+                onProgress = { done, total ->
+                    downloads = downloads + (spec.id to DownloadRow(true, done, total, null))
+                },
+            ).download(spec)
+            val path = outcome.localPath
+            if (outcome.state == InstallState.READY && !path.isNullOrBlank()) {
+                if (spec.role == ModelRole.CHAT) settings.chatPath = path
+                if (spec.role == ModelRole.EMBEDDING) settings.embedPath = path
+                updateSettings(settings)
+            }
+            downloads = downloads + (
+                spec.id to DownloadRow(
+                    running = false,
+                    bytes = outcome.bytesDownloaded,
+                    total = spec.bytes ?: outcome.bytesDownloaded,
+                    error = if (outcome.state == InstallState.READY) null else outcome.lastError,
+                )
+                )
+            refresh()
+        }
+    }
+
     private suspend fun refresh() {
         val now = runtime.clock.nowMillis()
         val modelReady = File(settings.chatPath).isFile
@@ -273,10 +320,11 @@ class AetherModel(val runtime: AndroidRuntime, val copy: Copy) : ViewModel() {
         chip = OfflineIndicator.chip(
             kind = if (settings.preferCloud) RuntimeKind.CLOUD else RuntimeKind.LOCAL,
             modelReady = modelReady,
-            downloading = false,
+            downloading = downloads.values.any { it.running },
             cloudSelected = settings.preferCloud,
         )
         keySaved = hasCloudKey()
+        huggingfaceSaved = !runtime.secrets.get(HuggingFaceSecret.NAME).isNullOrBlank()
     }
 
     private suspend fun conversation(mode: ConversationMode): String {

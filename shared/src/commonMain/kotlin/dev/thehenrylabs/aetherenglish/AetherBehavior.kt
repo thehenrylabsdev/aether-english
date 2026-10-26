@@ -140,6 +140,12 @@ class MemoryBlobs : ModelBlobs {
         partial.remove(modelId)
         promoted += sha256
     }
+
+    override fun readyPath(modelId: String): String = "memory:$modelId"
+
+    override fun consumePartial(modelId: String, consumer: (ByteArray) -> Unit) {
+        partial[modelId]?.let(consumer)
+    }
 }
 
 object ContentDraftParser {

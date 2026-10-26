@@ -34,7 +34,7 @@ export ANDROID_HOME="$HOME/android-sdk"
 - The CEFR label on screen is an estimate for practice and leveling, not a certificate. Placement is stored only after you confirm it.
 - Listening uses the device text-to-speech voice. Pronunciation records PCM on the device and, only on API 31+ when on-device recognition is available, listens with `SpeechRecognizer.createOnDeviceSpeechRecognizer`. Notes come from word alignment, RMS, clipping, and a pace heuristic. The screen does not show a speaking percent, a phoneme grade, or a CEFR speaking score. A saved PCM buffer is not sent to a server recognizer, and `EXTRA_PREFER_OFFLINE` is not used.
 - Local LiteRT-LM is the first runtime. Cloud (Gemini or an OpenAI-compatible API) runs only after you save your own key. There is no silent fallback. Personal context is sent to the cloud only when a separate switch is on. That switch defaults to off.
-- Model download stays disabled until `models/manifest.json` has a URL and a sha256. A local path still works and is labeled unverified.
+- Settings downloads the chat and embedding files from Hugging Face. The checksum is the Git LFS oid read when the download starts, not a hash baked into the app. A 401 or 403 asks for a Hugging Face token, which is stored in the Android Keystore and sent only as an Authorization header. The saved file path is written into settings so chat can use it with Cloud off.
 - Seed passages, the grammar note `past-simple-regular`, and one exercise are original project text. Generated drafts are stored with the license `generated-on-device`. The draft prompt forbids copying textbooks, exams, and web articles.
 
 ## Storage and secrets

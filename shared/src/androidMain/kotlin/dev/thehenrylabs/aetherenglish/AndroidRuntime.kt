@@ -81,6 +81,7 @@ class AndroidRuntime(
     val tts: AndroidTts,
     val speech: AndroidSpeakSession,
     val blobs: FileModelBlobs,
+    val downloads: DownloadTransport,
     val settingsFile: File,
     val clock: AppClock,
 ) {
@@ -115,6 +116,10 @@ suspend fun openAndroidRuntime(context: Context): AndroidRuntime {
     val client = HttpClient(OkHttp) {
         expectSuccess = false
     }
+    val downloads = HttpClient(OkHttp) {
+        expectSuccess = false
+        followRedirects = false
+    }
     return AndroidRuntime(
         context = app,
         store = store,
@@ -126,6 +131,7 @@ suspend fun openAndroidRuntime(context: Context): AndroidRuntime {
         tts = AndroidTts(app),
         speech = AndroidSpeakSession(app),
         blobs = FileModelBlobs(File(root, "models")),
+        downloads = KtorDownloadTransport(downloads),
         settingsFile = File(root, "settings.txt"),
         clock = AppClock { System.currentTimeMillis() },
     )

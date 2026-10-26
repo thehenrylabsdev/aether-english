@@ -316,6 +316,10 @@ data class ModelSpec(
     val url: String,
     val bytes: Long?,
     val sha256: String?,
+    val repo: String = "",
+    val revision: String = "",
+    val remoteFile: String = "",
+    val gated: Boolean = false,
 )
 
 data class ModelInstall(
@@ -934,6 +938,109 @@ object Sha256 {
         }.toByteArray()
     }
 
+    class Digester {
+        private var h0 = 0x6a09e667
+        private var h1 = -0x4498517b
+        private var h2 = 0x3c6ef372
+        private var h3 = -0x5ab00ac6
+        private var h4 = 0x510e527f
+        private var h5 = -0x64fa9774
+        private var h6 = 0x1f83d9ab
+        private var h7 = 0x5be0cd19
+        private val block = ByteArray(64)
+        private var filled = 0
+        private var messageBytes = 0L
+
+        fun update(bytes: ByteArray) {
+            messageBytes += bytes.size.toLong()
+            var offset = 0
+            while (offset < bytes.size) {
+                val count = minOf(64 - filled, bytes.size - offset)
+                bytes.copyInto(block, filled, offset, offset + count)
+                filled += count
+                offset += count
+                if (filled == 64) {
+                    compress(block, 0)
+                    filled = 0
+                }
+            }
+        }
+
+        fun hex(): String {
+            val bitLength = messageBytes * 8L
+            val pad = if (filled < 56) 56 - filled else 120 - filled
+            val tail = ByteArray(filled + pad + 8)
+            block.copyInto(tail, endIndex = filled)
+            tail[filled] = 0x80.toByte()
+            for (shift in 7 downTo 0) {
+                tail[tail.size - 8 + (7 - shift)] = ((bitLength ushr (shift * 8)) and 0xff).toByte()
+            }
+            var offset = 0
+            while (offset < tail.size) {
+                compress(tail, offset)
+                offset += 64
+            }
+            val alphabet = "0123456789abcdef"
+            return buildString(64) {
+                intArrayOf(h0, h1, h2, h3, h4, h5, h6, h7).forEach { word ->
+                    for (shift in intArrayOf(24, 16, 8, 0)) {
+                        val value = (word ushr shift) and 0xff
+                        append(alphabet[value ushr 4])
+                        append(alphabet[value and 0x0f])
+                    }
+                }
+            }
+        }
+
+        private fun compress(padded: ByteArray, offset: Int) {
+            val w = IntArray(64)
+            for (index in 0 until 16) {
+                val base = offset + index * 4
+                w[index] = ((padded[base].toInt() and 0xff) shl 24) or
+                    ((padded[base + 1].toInt() and 0xff) shl 16) or
+                    ((padded[base + 2].toInt() and 0xff) shl 8) or
+                    (padded[base + 3].toInt() and 0xff)
+            }
+            for (index in 16 until 64) {
+                val s0 = w[index - 15].rotateRight(7) xor w[index - 15].rotateRight(18) xor (w[index - 15] ushr 3)
+                val s1 = w[index - 2].rotateRight(17) xor w[index - 2].rotateRight(19) xor (w[index - 2] ushr 10)
+                w[index] = w[index - 16] + s0 + w[index - 7] + s1
+            }
+            var a = h0
+            var b = h1
+            var c = h2
+            var d = h3
+            var e = h4
+            var f = h5
+            var g = h6
+            var h = h7
+            for (index in 0 until 64) {
+                val s1 = e.rotateRight(6) xor e.rotateRight(11) xor e.rotateRight(25)
+                val ch = (e and f) xor (e.inv() and g)
+                val temp1 = h + s1 + ch + K[index] + w[index]
+                val s0 = a.rotateRight(2) xor a.rotateRight(13) xor a.rotateRight(22)
+                val maj = (a and b) xor (a and c) xor (b and c)
+                val temp2 = s0 + maj
+                h = g
+                g = f
+                f = e
+                e = d + temp1
+                d = c
+                c = b
+                b = a
+                a = temp1 + temp2
+            }
+            h0 += a
+            h1 += b
+            h2 += c
+            h3 += d
+            h4 += e
+            h5 += f
+            h6 += g
+            h7 += h
+        }
+    }
+
     private fun Int.rotateRight(bits: Int): Int = (this ushr bits) or (this shl (32 - bits))
 }
 
@@ -953,6 +1060,8 @@ interface ModelBlobs {
     fun read(modelId: String): ByteArray
     fun reset(modelId: String)
     fun promote(modelId: String, sha256: String)
+    fun readyPath(modelId: String): String
+    fun consumePartial(modelId: String, consumer: (ByteArray) -> Unit)
 }
 
 class ModelDownloader(private val client: RangeClient, private val blobs: ModelBlobs) {
@@ -1163,6 +1272,11 @@ data class Copy(
     val unverifiedModel: String,
     val pronunciationLimit: String,
     val downloadUnavailable: String,
+    val downloadChat: String,
+    val downloadEmbed: String,
+    val downloadFailed: String,
+    val huggingfaceToken: String,
+    val huggingfaceTokenHint: String,
 ) {
     companion object {
         fun of(language: UiLanguage): Copy = if (language == UiLanguage.VI) VI else EN
@@ -1205,7 +1319,12 @@ data class Copy(
             keyMissing = "Save a provider key before a cloud turn. Aether will not switch to on-device silently.",
             unverifiedModel = "This local file has no published checksum, so it stays unverified.",
             pronunciationLimit = "Notes use word alignment, loudness, clipping, and pace. There is no speaking score, phoneme grade, or certificate.",
-            downloadUnavailable = "Download stays off until a checksum is published.",
+            downloadUnavailable = "Aether reads the file checksum from Hugging Face when a download starts.",
+            downloadChat = "Download chat model",
+            downloadEmbed = "Download embedding model",
+            downloadFailed = "Download failed. The file was not saved.",
+            huggingfaceToken = "Hugging Face token",
+            huggingfaceTokenHint = "Add a Hugging Face token to download this model.",
         )
 
         val VI: Copy = Copy(
@@ -1246,7 +1365,12 @@ data class Copy(
             keyMissing = "Hãy lưu khóa nhà cung cấp trước lượt đám mây. Aether không tự chuyển về máy.",
             unverifiedModel = "Tệp trên máy chưa có checksum đã công bố, nên chưa được xác minh.",
             pronunciationLimit = "Ghi chú dựa trên khớp từ, độ lớn, cắt đỉnh và nhịp. Không có điểm nói, điểm âm vị, hay chứng chỉ.",
-            downloadUnavailable = "Nút tải ở trạng thái tắt cho đến khi có checksum.",
+            downloadUnavailable = "Aether đọc checksum từ Hugging Face khi bắt đầu tải.",
+            downloadChat = "Tải mô hình chat",
+            downloadEmbed = "Tải mô hình nhúng",
+            downloadFailed = "Tải thất bại. Tệp chưa được lưu.",
+            huggingfaceToken = "Token Hugging Face",
+            huggingfaceTokenHint = "Hãy thêm token Hugging Face để tải model này.",
         )
     }
 }

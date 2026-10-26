@@ -25,6 +25,13 @@ Defaults for a Galaxy A57-class device before measurement: 512 / 256 / 128 outpu
 
 GitHub plus a sideload APK. No Play Store and no App Store. The release workflow signs with the debug certificate because a release keystore is a secret and is not committed.
 
+## On-device model files
+
+Checked against the public Hugging Face API on 2026-10-26. The checksum is not stored here. The app reads the Git LFS oid when a download starts.
+
+- Chat: `litert-community/gemma-4-E2B-it-litert-lm` revision `1caa527c1e88b55f046fcd8d2b4265606680663d`, file `gemma-4-E2B-it.litertlm`, 2588147712 bytes. Not gated. This is the general LiteRT-LM build. The CPU/GPU switch selects the runtime backend for this one file.
+- Embedding: `litert-community/embeddinggemma-2-740m-litert-lm` revision `24d962e906c7d332c6428e71c9676855024569e2`, file `embeddinggemma-2-740m.litertlm`, 484622336 bytes. Not gated. The model card states a 768-dimensional vector space, which matches the stored embedding width. `litert-community/embeddinggemma-300m` is gated and ships `.tflite`, which this LiteRT-LM engine does not load.
+
 ## Scope
 
 Android app plus shared library. No iOS application in this revision. iOS native targets are configured only when the host OS is macOS.

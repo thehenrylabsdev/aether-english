@@ -50,5 +50,20 @@ class FileModelBlobs(private val directory: File) : ModelBlobs {
         File(directory, "$modelId.sha256").writeText(sha256)
     }
 
+    override fun readyPath(modelId: String): String = readyFile(modelId).absolutePath
+
+    override fun consumePartial(modelId: String, consumer: (ByteArray) -> Unit) {
+        val partial = partialFile(modelId)
+        if (!partial.exists()) return
+        partial.inputStream().use { input ->
+            val buffer = ByteArray(1024 * 1024)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                if (count > 0) consumer(buffer.copyOf(count))
+            }
+        }
+    }
+
     private fun partialFile(modelId: String): File = File(directory, "$modelId.partial")
 }

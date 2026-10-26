@@ -21,19 +21,29 @@ object ModelCatalog {
         id = "chat",
         role = ModelRole.CHAT,
         fileName = "chat.litertlm",
-        url = "",
-        bytes = null,
+        url = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/1caa527c1e88b55f046fcd8d2b4265606680663d/gemma-4-E2B-it.litertlm",
+        bytes = 2_588_147_712L,
         sha256 = null,
+        repo = "litert-community/gemma-4-E2B-it-litert-lm",
+        revision = "1caa527c1e88b55f046fcd8d2b4265606680663d",
+        remoteFile = "gemma-4-E2B-it.litertlm",
+        gated = false,
     )
     val embed: ModelSpec = ModelSpec(
         id = "embed",
         role = ModelRole.EMBEDDING,
         fileName = "embed.litertlm",
-        url = "",
-        bytes = null,
+        url = "https://huggingface.co/litert-community/embeddinggemma-2-740m-litert-lm/resolve/24d962e906c7d332c6428e71c9676855024569e2/embeddinggemma-2-740m.litertlm",
+        bytes = 484_622_336L,
         sha256 = null,
+        repo = "litert-community/embeddinggemma-2-740m-litert-lm",
+        revision = "24d962e906c7d332c6428e71c9676855024569e2",
+        remoteFile = "embeddinggemma-2-740m.litertlm",
+        gated = false,
     )
     val specs: List<ModelSpec> = listOf(chat, embed)
 
-    fun downloadAllowed(spec: ModelSpec): Boolean = spec.sha256 != null && spec.url.isNotBlank()
+    fun downloadAllowed(spec: ModelSpec): Boolean {
+        return spec.repo.isNotBlank() && spec.revision.isNotBlank() && spec.remoteFile.isNotBlank()
+    }
 }

@@ -413,6 +413,149 @@ class Sha256Test {
     }
 }
 
+class LfsModelDownloadTest {
+    @Test
+    fun pointerThenMatchingBytesPromotes() = runTest {
+        val payload = "abc".encodeToByteArray()
+        val digest = Sha256.hex(payload)
+        val pointer = """
+            version https://git-lfs.github.com/spec/v1
+            oid sha256:$digest
+            size ${payload.size}
+
+        """.trimIndent().encodeToByteArray()
+        val blobs = MemoryBlobs()
+        var fileCalls = 0
+        val authorizations = mutableListOf<String?>()
+        val transport = object : DownloadTransport {
+            override suspend fun transfer(
+                url: String,
+                fromByte: Long,
+                authorization: String?,
+                onStatus: (Int) -> Unit,
+                sink: (ByteArray) -> Unit,
+            ) {
+                authorizations += authorization
+                check(url.startsWith("https://huggingface.co/"))
+                if (url.contains("/raw/")) {
+                    onStatus(200)
+                    sink(pointer)
+                    return
+                }
+                fileCalls++
+                onStatus(206)
+                if (fileCalls == 1) sink(payload.copyOfRange(0, 1)) else sink(payload.copyOfRange(1, payload.size))
+            }
+        }
+        val spec = ModelSpec(
+            id = "chat",
+            role = ModelRole.CHAT,
+            fileName = "chat.litertlm",
+            url = "",
+            bytes = payload.size.toLong(),
+            sha256 = null,
+            repo = "litert-community/example",
+            revision = "abc123",
+            remoteFile = "model.litertlm",
+        )
+        val result = HuggingFaceDownloader(transport, blobs, token = { "hf_test_token" }).download(spec)
+        assertEquals(InstallState.READY, result.state)
+        assertEquals(digest, result.verifiedSha256)
+        assertEquals(digest, blobs.promoted.single())
+        assertTrue(authorizations.isNotEmpty())
+        assertTrue(authorizations.all { it == "Bearer hf_test_token" })
+        assertFalse(result.lastError.orEmpty().contains("hf_test_token"))
+        assertEquals("memory:chat", result.localPath)
+    }
+
+    @Test
+    fun mismatchedBytesAreRejectedAndNotSavedReady() = runTest {
+        val claimed = Sha256.hex("abc".encodeToByteArray())
+        val body = "nope".encodeToByteArray()
+        val pointer = """
+            version https://git-lfs.github.com/spec/v1
+            oid sha256:$claimed
+            size ${body.size}
+        """.trimIndent().encodeToByteArray()
+        val blobs = MemoryBlobs()
+        val transport = object : DownloadTransport {
+            override suspend fun transfer(
+                url: String,
+                fromByte: Long,
+                authorization: String?,
+                onStatus: (Int) -> Unit,
+                sink: (ByteArray) -> Unit,
+            ) {
+                if (url.contains("/raw/")) {
+                    onStatus(200)
+                    sink(pointer)
+                } else {
+                    onStatus(200)
+                    sink(body)
+                }
+            }
+        }
+        val result = HuggingFaceDownloader(transport, blobs).download(sampleSpec())
+        assertEquals(InstallState.FAILED, result.state)
+        assertEquals("checksum", result.lastError)
+        assertTrue(blobs.promoted.isEmpty())
+        assertNull(result.localPath)
+        assertNull(result.verifiedSha256)
+    }
+
+    @Test
+    fun unauthorizedTellsTheCallerToAddAToken() = runTest {
+        val blobs = MemoryBlobs()
+        val transport = object : DownloadTransport {
+            override suspend fun transfer(
+                url: String,
+                fromByte: Long,
+                authorization: String?,
+                onStatus: (Int) -> Unit,
+                sink: (ByteArray) -> Unit,
+            ) {
+                check(authorization == "Bearer hf_test_token")
+                onStatus(401)
+            }
+        }
+        val result = HuggingFaceDownloader(transport, blobs, token = { "hf_test_token" }).download(sampleSpec())
+        assertEquals(InstallState.FAILED, result.state)
+        assertEquals("huggingface-token", result.lastError)
+        assertTrue(blobs.promoted.isEmpty())
+        assertFalse(result.lastError.orEmpty().contains("hf_test_token"))
+    }
+
+    @Test
+    fun catalogPublishesDownloadsWithoutAHardcodedChecksum() {
+        assertNull(ModelCatalog.chat.sha256)
+        assertNull(ModelCatalog.embed.sha256)
+        assertTrue(ModelCatalog.downloadAllowed(ModelCatalog.chat))
+        assertTrue(ModelCatalog.downloadAllowed(ModelCatalog.embed))
+        assertEquals("litert-community/gemma-4-E2B-it-litert-lm", ModelCatalog.chat.repo)
+        assertEquals("1caa527c1e88b55f046fcd8d2b4265606680663d", ModelCatalog.chat.revision)
+        assertEquals("gemma-4-E2B-it.litertlm", ModelCatalog.chat.remoteFile)
+        assertEquals(2_588_147_712L, ModelCatalog.chat.bytes)
+        assertEquals("litert-community/embeddinggemma-2-740m-litert-lm", ModelCatalog.embed.repo)
+        assertEquals("24d962e906c7d332c6428e71c9676855024569e2", ModelCatalog.embed.revision)
+        assertEquals("embeddinggemma-2-740m.litertlm", ModelCatalog.embed.remoteFile)
+        assertEquals(484_622_336L, ModelCatalog.embed.bytes)
+        assertFalse(ModelCatalog.chat.gated)
+        assertFalse(ModelCatalog.embed.gated)
+    }
+
+    private fun sampleSpec(): ModelSpec = ModelSpec(
+        id = "chat",
+        role = ModelRole.CHAT,
+        fileName = "chat.litertlm",
+        url = "",
+        bytes = 4,
+        sha256 = null,
+        repo = "litert-community/example",
+        revision = "abc123",
+        remoteFile = "model.litertlm",
+    )
+}
+
 class ModelDownloadTest {
     @Test
     fun partialRangeThenFullDigestPromotesAndABadByteFails() = runTest {

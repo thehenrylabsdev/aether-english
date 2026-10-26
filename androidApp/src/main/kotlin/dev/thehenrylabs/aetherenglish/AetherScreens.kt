@@ -68,6 +68,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -417,13 +418,11 @@ private fun LibraryScreen(model: AetherModel) {
 @Composable
 private fun SettingsScreen(model: AetherModel) {
     val current = model.settings
-    var chat by remember(current.chatPath) { mutableStateOf(current.chatPath) }
-    var embed by remember(current.embedPath) { mutableStateOf(current.embedPath) }
     var cloudModel by remember(current.cloudModelId) { mutableStateOf(current.cloudModelId) }
     var key by remember { mutableStateOf("") }
+    var hfToken by remember { mutableStateOf("") }
     Screen {
         Text(model.copy.settings, style = MaterialTheme.typography.headlineMedium, color = Ink)
-        Text(model.copy.unverifiedModel, color = BodyInk)
         Text(model.copy.downloadUnavailable, color = BodyInk)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("CPU", color = Ink, modifier = Modifier.weight(1f))
@@ -460,25 +459,48 @@ private fun SettingsScreen(model: AetherModel) {
             })
         }
         OutlinedTextField(cloudModel, { cloudModel = it }, label = { Text(model.copy.cloud) }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(chat, { chat = it }, label = { Text(model.copy.unverifiedModel) }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(embed, { embed = it }, label = { Text("768") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(key, { key = it }, label = { Text(model.copy.keyMissing) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(
+            hfToken,
+            { hfToken = it },
+            label = { Text(model.copy.huggingfaceToken) },
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+        )
         PrimaryButton(model.copy.save, Icons.Filled.Save, {
-            model.updateSettings(current.copy(chatPath = chat, embedPath = embed, cloudModelId = cloudModel))
+            model.updateSettings(current.copy(cloudModelId = cloudModel))
             if (key.isNotEmpty()) {
                 model.saveKey(key)
                 key = ""
             }
+            if (hfToken.isNotEmpty()) {
+                model.saveHuggingFaceToken(hfToken)
+                hfToken = ""
+            }
         })
         ModelCatalog.specs.forEach { spec ->
-            PrimaryButton(
-                model.copy.downloading,
-                Icons.Filled.Download,
-                onClick = {},
-                enabled = ModelCatalog.downloadAllowed(spec),
-            )
+            val row = model.downloads[spec.id]
+            val idle = if (spec.role == ModelRole.CHAT) model.copy.downloadChat else model.copy.downloadEmbed
+            val label = if (row?.running == true) model.copy.downloading else idle
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                PrimaryButton(
+                    label,
+                    Icons.Filled.Download,
+                    { model.downloadModel(spec) },
+                    wideButton(),
+                    enabled = ModelCatalog.downloadAllowed(spec) && row?.running != true,
+                )
+                if (row?.running == true) Text("${row.bytes} / ${row.total}", color = BodyInk)
+                val message = when {
+                    row?.error == "huggingface-token" || spec.gated -> model.copy.huggingfaceTokenHint
+                    row?.error != null -> model.copy.downloadFailed
+                    else -> ""
+                }
+                if (message.isNotEmpty()) Text(message, color = Danger)
+            }
         }
         if (model.keySaved) Text(model.copy.save, color = Ok)
+        if (model.huggingfaceSaved) Text(model.copy.huggingfaceToken, color = Ok)
     }
 }
 
