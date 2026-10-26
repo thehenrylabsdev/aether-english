@@ -2,6 +2,8 @@
 
 Pins are updated with the git SHA after each commit that changes them.
 
+Implementation commit: `7c401994869e4d123bbda3c85627f9ef13df5830`.
+
 ## 2026-10-26 versions
 
 - Kotlin 2.4.21, because LiteRT-LM 0.18.0 carries Kotlin 2.4 metadata.
