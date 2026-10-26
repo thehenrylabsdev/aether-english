@@ -2,7 +2,7 @@
 
 Pins are updated with the git SHA after each commit that changes them.
 
-Implementation commit: `7c401994869e4d123bbda3c85627f9ef13df5830`.
+Implementation commit: `36f5d49361c9def98cfb7bbd9d2306bf2ce0c7e6`.
 
 ## 2026-10-26 versions
 
