@@ -1,0 +1,8 @@
+Retrieval probes for a future on-device session.
+Do not record tokens per second or a temperature here until a Galaxy A57 session is run.
+
+query: ask the price of apples
+expected source: market-morning
+
+query: regular past tense
+expected source: past-simple-regular

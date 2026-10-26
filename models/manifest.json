@@ -1,0 +1,20 @@
+{
+  "models": [
+    {
+      "id": "chat",
+      "role": "CHAT",
+      "fileName": "chat.litertlm",
+      "url": "",
+      "bytes": null,
+      "sha256": null
+    },
+    {
+      "id": "embed",
+      "role": "EMBEDDING",
+      "fileName": "embed.litertlm",
+      "url": "",
+      "bytes": null,
+      "sha256": null
+    }
+  ]
+}
