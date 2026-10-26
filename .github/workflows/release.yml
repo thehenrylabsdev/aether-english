@@ -1,0 +1,24 @@
+name: release-apk
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: android-actions/setup-android@v3
+      - name: Assemble release APK
+        run: ./gradlew :androidApp:assembleRelease --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aether-english-release
+          path: androidApp/build/outputs/apk/release/*.apk

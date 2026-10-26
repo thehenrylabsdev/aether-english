@@ -1,0 +1,59 @@
+{
+  "items": [
+    {
+      "id": "morning-bus",
+      "kind": "READING",
+      "cefr": "A1",
+      "title": "Morning bus",
+      "license": "original-project",
+      "attribution": "Original Aether seed, Henry Nguyen, 2026.",
+      "body": "Linh waits for the bus. She asks the driver for the next stop and sits near the window."
+    },
+    {
+      "id": "market-morning",
+      "kind": "READING",
+      "cefr": "A2",
+      "title": "Market morning",
+      "license": "original-project",
+      "attribution": "Original Aether seed, Henry Nguyen, 2026.",
+      "body": "Mia buys two apples and asks the price. The seller smiles and gives her a small bag."
+    },
+    {
+      "id": "station-delay",
+      "kind": "READING",
+      "cefr": "B1",
+      "title": "Station delay",
+      "license": "original-project",
+      "attribution": "Original Aether seed, Henry Nguyen, 2026.",
+      "body": "The train is late, so Nam checks the board and tells his friend they can wait in the cafe."
+    },
+    {
+      "id": "workshop-note",
+      "kind": "READING",
+      "cefr": "B2",
+      "title": "Workshop note",
+      "license": "original-project",
+      "attribution": "Original Aether seed, Henry Nguyen, 2026.",
+      "body": "After the workshop, Hoa writes a short note about what the team decided and which task she will finish first."
+    },
+    {
+      "id": "past-simple-regular",
+      "kind": "GRAMMAR",
+      "cefr": "A2",
+      "title": "Past simple regular",
+      "license": "original-project",
+      "attribution": "Original Aether seed, Henry Nguyen, 2026.",
+      "body": "Add ed to a regular verb. walk becomes walked. play becomes played."
+    },
+    {
+      "id": "regular-past-one",
+      "kind": "EXERCISE",
+      "cefr": "A2",
+      "title": "One regular past",
+      "license": "original-project",
+      "attribution": "Original Aether seed, Henry Nguyen, 2026.",
+      "answer": "walked",
+      "body": "Write the past form of walk."
+    }
+  ]
+}
